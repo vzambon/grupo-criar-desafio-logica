@@ -30,7 +30,7 @@ class RacingLogSeeder extends Seeder
                     'lap' => $lap,
                     'pilot_id' => $pilot->id,
                     'completed_in' => $completedIn,
-                    'avarage_vel' => $trackLengthInKm / ($completedInSeconds/3600),
+                    'avarage_vel' => number_format($trackLengthInKm / ($completedInSeconds/3600), 2),
                     'created_at' => $createdAt->toISOString(),
                     'updated_at' => $createdAt->toISOString()
                 ])->create();
