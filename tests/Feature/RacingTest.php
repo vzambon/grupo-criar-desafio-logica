@@ -14,9 +14,9 @@ class RacingTest extends TestCase
     use RefreshDatabase;
 
     /**
-     * Test api response of racing classification result. Listing pilots ordered by position
+     * Test api listing of racing classification result. Listing pilots ordered by position
      */
-    public function test_return_race_classification(): void
+    public function test_list_race_classification(): void
     {
         $this->prepareDatabase();
 
@@ -35,17 +35,17 @@ class RacingTest extends TestCase
         $pilots = Pilot::with('raceLogs')->get();
 
         $pilotsCompleteTime = $pilots->map(function($el) {
-            $el->race_logs;
-            $el->totalTime = $el->raceLogs->pluck('completed_in')
-                ->map(fn($el) => Carbon::parse($el)->secondsSinceMidnight())
-                ->reduce(function(?int $carry, int $item) {
+            $lapsTime = $el->raceLogs->pluck('completed_in');
+            $timeAsSeconds = $lapsTime->map(fn($el) => Carbon::parse($el)->secondsSinceMidnight());
+
+            $el->totalTime = $timeAsSeconds->reduce(function(?int $carry, int $item) {
                     return $carry + $item;
                 });
 
             return [
                 'id' => $el->id,
                 'name' => $el->name,
-                'total_time' => $el->totalTime
+                'total_time' => $el->totalTime,
             ];
         })
         ->sortBy('total_time')
@@ -58,34 +58,38 @@ class RacingTest extends TestCase
         $response->assertJson($pilotsCompleteTime);
     }
 
+    // public function test_list_pilots_best_lap()
+    // {
+    //     $this->prepareDatabase();
+
+    //     $response = $this->get(route('racing.top-laps'));
+
+    //     $response->assertOk();
+    // }
+
     private function prepareDatabase()
     {
         $pilots = Pilot::factory(6)->create();
 
-       $trackLengthInKm = 1.1;
+        $trackLengthInKm = 1.1;
 
-       $raceStartedAt = now();
+        $raceStartedAt = now();
 
         for($lap=1; $lap<=4; $lap++) {
             foreach($pilots as $pilot) {
-                $previousLap = RacingLog::where('pilot_id', $pilot->id)->orderByDesc('created_at')->first();
-                
-
-                $diffInSeconds = now()->diffInSeconds(($previousLap?->created_at ?? $raceStartedAt)
-                    ->addSeconds(fake()->numberBetween(60, 290)));
-                $completedIn = gmdate('H:i:s', $diffInSeconds);
-
-                $createdAt = $previousLap ? $previousLap->created_at->addSeconds(fake()->numberBetween(60, 290)) : now();
+                $previousLap = RacingLog::where('pilot_id', '=', $pilot->id)->orderByDesc('created_at')->orderByDesc('id')->first();
+                $completedInSeconds = fake()->numberBetween(60, 290);
+                $completedIn = gmdate('H:i:s', $completedInSeconds);
+                $createdAt = ($previousLap?->created_at ?? $raceStartedAt)->addSeconds($completedInSeconds);
 
                 RacingLog::factory()->state([
                     'lap' => $lap,
                     'pilot_id' => $pilot->id,
                     'completed_in' => $completedIn,
-                    'avarage_vel' => $trackLengthInKm / ($diffInSeconds/3600),
-                    'created_at' => $createdAt,
-                    'updated_at' => $createdAt
+                    'avarage_vel' => $trackLengthInKm / ($completedInSeconds/3600),
+                    'created_at' => $createdAt->toISOString(),
+                    'updated_at' => $createdAt->toISOString()
                 ])->create();
-
             }
         }
     }

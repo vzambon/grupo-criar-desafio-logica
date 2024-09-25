@@ -12,7 +12,6 @@ class RacingController extends Controller
         $pilots = Pilot::with('raceLogs')->get();
 
         $pilotsCompleteTime = $pilots->map(function($el) {
-            $el->race_logs;
             $el->totalTime = $el->raceLogs->pluck('completed_in')
                 ->map(fn($el) => Carbon::parse($el)->secondsSinceMidnight())
                 ->reduce(function(?int $carry, int $item) {
